@@ -94,14 +94,14 @@ if (!noUSB) {
 
 setInterval(function () {
 	vocal_max = -18;
-}, 1200);
+}, 5000);
 // var songName = "Creedence Clearwater Revival - Green River";
 var songName = "";
 //No slashes or weird characters.
 var songList = [ 
 	// "Shaed - Trampoline", 
-	// "How you like that by Blackpink", 
-	// "Mom by Meghan Trainor", 
+	"Céline Dion - My Heart Will Go On", 
+	"Imagine Dragons - Nice to Meet You", 
 	"The Chainsmokers - Summertime Friends", 
 	"Chop Suey – System Of A Down", 
 	"September – Earth, Wind, and Fire", 
@@ -439,7 +439,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(0,  Math.min(5, convertRange(rms, [vocal_max - 24, vocal_max], [0,5])))) * 100) / 100;
+		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [vocal_max - 26, vocal_max], [0,6])))) * 100) / 100;
 		if (isNaN(val)) { val = 0; }
 		console.log('Value: ' + Math.round(val));
 		for (var i = 0; i < 3; i++) {
@@ -456,20 +456,18 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		// console.log("|/-- ===========");
 		// console.log("/     =========");
 		// console.log("       ======");
-		if(val > 3 && randomInt(1, 64) == 8){
+		if(val > 4 && randomInt(1, 128) == 8){
 			clearTimeout(headTurnTimer);
 			headTurn = true;
 			headTurnPos = randomInt(0, 5);
 			if (headTurnPos == 3) { headTurnPos = headTurnPos + randomInt(-1, 1); }
 			Math.max(1,  Math.min(5, headTurnPos));
-		}
-		if(val > 4 && randomInt(1, 64) == 8){
+		}else if(val > 3 && randomInt(1, 128) == 8){
 			headTurnTimer = setTimeout(function(){
 				headTurn = false;
 				headTurnPos = 3;
 			}, headTurnDelay);
-		}
-		if(val < 2 && randomInt(1, 32) == 8){
+		}else if(val < 2 && randomInt(1, 128) == 8){
 			headTurnTimer = setTimeout(function(){
 				headTurn = false;
 				headTurnPos = 3;
