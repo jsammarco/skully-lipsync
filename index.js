@@ -99,7 +99,7 @@ setInterval(function () {
 var songName = "";
 //No slashes or weird characters.
 var songList = [ 
-	// "Shaed - Trampoline", 
+	"midnight city by m83", 
 	"Céline Dion - My Heart Will Go On", 
 	"Imagine Dragons - Nice to Meet You", 
 	"The Chainsmokers - Summertime Friends", 
@@ -439,7 +439,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [vocal_max - 26, vocal_max], [0,6])))) * 100) / 100;
+		var val = Math.round((Math.max(1,  Math.min(6, convertRange(rms, [vocal_max - 26, vocal_max], [0,6])))) * 100) / 100;
 		if (isNaN(val)) { val = 0; }
 		console.log('Value: ' + Math.round(val));
 		for (var i = 0; i < 3; i++) {
