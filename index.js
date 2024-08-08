@@ -67,6 +67,8 @@ var relay2LastTimeOff = new Date().getTime();
 var relay1 = 0;
 var relay2 = 0;
 const noUSB = true; //TRUE for UDP only
+var skipUDPCount = 2;
+var udpCounter = 0;
 
 if (!noUSB) {
 	const port = new SerialPort({
@@ -99,6 +101,11 @@ setInterval(function () {
 var songName = "";
 //No slashes or weird characters.
 var songList = [ 
+	"Life is Good - The Hunts",
+	"Mad Jino - Bum",
+	"Vic Sage - OMG",
+	"Semo - Low Again",
+	"Alice In Chains - Them Bones", 
 	"midnight city by m83", 
 	"Céline Dion - My Heart Will Go On", 
 	"Imagine Dragons - Nice to Meet You", 
@@ -338,7 +345,7 @@ function downloadConvertPlay(songName) {
 function convertSong(path, songName) {
 	console.log("Processing with A.I. Please wait.");
 	// var spleeterCmd = spawn('spleeter', ['separate', '-p', 'spleeter:5stems', '-o', 'output5stem', path]);
-	var spleeterCmd = spawn('spleeter', ['separate', '-p', 'spleeter:4stems', '-o', 'output5stem', path]);
+	var spleeterCmd = spawn('spleeter', ['separate', '-p', 'spleeter:5stems', '-o', 'output5stem', path]);
 	console.log(spleeterCmd.spawnargs);
 	spleeterCmd.stdout.on('data', function(data) {
 	    console.log('stdout: ' + data);
@@ -377,7 +384,10 @@ function playSong(path, vocalPath, drumPath, otherPath){
 	var ffplayDrumsCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', drumPath]);
 	var ffplayVocalsCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', vocalPath]);
 	var ffplayOtherCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', otherPath]);
-	var songCmd = spawn('ffplay', ['-autoexit', '-volume', '100', '-nodisp', '-i', path]);
+	var songCmd = null;
+	// setTimeout(function(){
+		songCmd = spawn('ffplay', ['-autoexit', '-volume', '100', '-nodisp', '-i', path]);
+	// }, 20);
 	ffplayDrumsCmd.stderr.on('data', function(data) {
 		data = data.toString();
 	    // console.log('stderr: ' + data);
@@ -630,12 +640,17 @@ function playSong(path, vocalPath, drumPath, otherPath){
    |_\\/__\\/__|\n\
   |___________|");
 		}
-		if (neckPos > lastNeckPos+db || neckPos < lastNeckPos-db || mouthPos > lastMouthPos+db || mouthPos < lastMouthPos-db) {
+		// if (neckPos > lastNeckPos+db || neckPos < lastNeckPos-db || mouthPos > lastMouthPos+db || mouthPos < lastMouthPos-db) {
 			var serialMsg = neckPos+','+mouthPos+','+relay1+','+relay2+'\n';
 			var udp_msg = serialMsg;
 			var udp_msg_len = udp_msg.length;
 			console.log(serialMsg);
-			client.send(udp_msg, 0, udp_msg_len, udp_port, udp_ip);
+			udpCounter++;
+			if (udpCounter % skipUDPCount == 0) {
+				console.log("sent", udpCounter)
+				client.send(udp_msg, 0, udp_msg_len, udp_port, udp_ip);
+				udpCounter = 0;
+			}
 			if (!noUSB) {
 				port.write(serialMsg, (err) => {
 					lastComMsgOut = serialMsg;
@@ -645,7 +660,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 					console.log('Serial Msg Out: '+serialMsg);
 				});
 			}
-		}
+		// }
 	});
 	ffplayVocalsCmd.on('close', function(code) {
 	    console.log('ffplayVocalsCmd closing code: ' + code);
