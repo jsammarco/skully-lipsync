@@ -20,6 +20,7 @@
  *      \-....-'\      \) w
  *       `-`-`-`-`
  */
+const pathLib = require('path');
 const dgram = require('dgram');
 const client = dgram.createSocket('udp4');
 const udp_ip = "192.168.1.255"; //192.168.1.116
@@ -67,7 +68,7 @@ var relay2LastTimeOff = new Date().getTime();
 var relay1 = 0;
 var relay2 = 0;
 const noUSB = true; //TRUE for UDP only
-var skipUDPCount = 2;
+var skipUDPCount = 1;
 var udpCounter = 0;
 
 if (!noUSB) {
@@ -101,6 +102,10 @@ setInterval(function () {
 var songName = "";
 //No slashes or weird characters.
 var songList = [ 
+	// "Speaker Sound Test Check Bass Treble Pan and Vocals",
+	"why georgia john mayer",
+	"So Doggone Lonesome - Johnny Cash",
+	"Ariana Grande - we can't be friends",
 	"Life is Good - The Hunts",
 	"Mad Jino - Bum",
 	"Vic Sage - OMG",
@@ -379,15 +384,84 @@ function convertSong(path, songName) {
 }
 
 function playSong(path, vocalPath, drumPath, otherPath){
+
+
+  const pitchDataPath = vocalPath.slice(0,-11) + "/pitch.csv";
+  let pitchData = [];
+// Ensure the directory for the pitch data file exists
+const ensureDirectoryExistence = (filePath) => {
+  const dirname = pathLib.dirname(filePath);
+  if (fs.existsSync(dirname)) {
+    return true;
+  }
+  ensureDirectoryExistence(dirname);
+  fs.mkdirSync(dirname);
+};
+
+if (!fs.existsSync(pitchDataPath)) {
+  console.log('Extracting pitch data...');
+  ensureDirectoryExistence(pitchDataPath);
+  const aubioPitchCmd = spawn('aubio', ['pitch', vocalPath]);
+
+  const writeStream = fs.createWriteStream(pitchDataPath);
+  aubioPitchCmd.stderr.on('data', function(data) {
+    writeStream.write(data);
+  });
+
+  aubioPitchCmd.on('close', (code) => {
+    writeStream.end();
+    console.log('Pitch data extraction completed.');
+
+    // Read the pitch data after extraction
+    const rl = readline.createInterface({
+      input: fs.createReadStream(pitchDataPath),
+      crlfDelay: Infinity
+    });
+
+    rl.on('line', (line) => {
+      const [timestamp, pitch] = line.split(',').map(parseFloat);
+      pitchData.push({ timestamp, pitch });
+    });
+
+    rl.on('close', () => {
+	    console.log('Pitch data loaded', pitchData);
+	    process.abort();
+      // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+    });
+  });
+} else {
+  // Read the pitch data if it already exists
+  const rl = readline.createInterface({
+    input: fs.createReadStream(pitchDataPath),
+    crlfDelay: Infinity
+  });
+
+  rl.on('line', (line) => {
+    const [timestamp, pitch] = line.split(',').map(parseFloat);
+    pitchData.push({ timestamp, pitch });
+  });
+
+  rl.on('close', () => {
+    console.log('Pitch data loaded', pitchData);
+    process.abort();
+    // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+
+  });
+}
+
+
+
 	console.log("Playing "+path);
 	console.log("Vocals "+vocalPath);
-	var ffplayDrumsCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', drumPath]);
-	var ffplayVocalsCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', vocalPath]);
-	var ffplayOtherCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', otherPath]);
+	var ffplayVocalsCmd = null;
 	var songCmd = null;
+	var ffplayDrumsCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', drumPath]);
 	// setTimeout(function(){
-		songCmd = spawn('ffplay', ['-autoexit', '-volume', '100', '-nodisp', '-i', path]);
-	// }, 20);
+	// const aubioPitchCmd = spawn('aubio', ['pitch', vocalPath]);
+		ffplayVocalsCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', vocalPath]);
+	// }, 0);
+	var ffplayOtherCmd = spawn('ffplay', ['-autoexit', '-volume', '0', '-af', 'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level', '-nodisp', '-i', otherPath]);
+	songCmd = spawn('ffplay', ['-autoexit', '-volume', '100', '-nodisp', '-i', path]);
 	ffplayDrumsCmd.stderr.on('data', function(data) {
 		data = data.toString();
 	    // console.log('stderr: ' + data);
@@ -429,6 +503,11 @@ function playSong(path, vocalPath, drumPath, otherPath){
 	ffplayVocalsCmd.stdout.on('data', function(data) {
 	    console.log('stdout: ' + data);
 	});
+	// aubioPitchCmd.stdout.on('data', function(data) {
+	//     const currentPitch = data.toString().split('\n').filter(line => line.trim() !== '').map(line => parseFloat(line));
+	//     avgPitch = currentPitch.reduce((acc, pitch) => acc + pitch, 0) / currentPitch.length;
+	//     // console.log('Average Pitch:', avgPitch);
+	// });
 	ffplayVocalsCmd.stderr.on('data', function(data) {
 		data = data.toString();
 	    // console.log('stderr: ' + data);
@@ -438,6 +517,9 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		    data.indexOf("Overall.RMS_level=") + 18 + 5
 		);
 		rms = parseInt(rms);
+		if (isNaN(rms)) {
+			rms = -20;
+		}
 		// if(rms + 20 < vocal_min){ //38
 		// 	vocal_min = rms + 20;
 		// }
@@ -449,7 +531,19 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(1,  Math.min(6, convertRange(rms, [vocal_max - 26, vocal_max], [0,6])))) * 100) / 100;
+		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [vocal_max - 25, vocal_max], [0,6])))) * 100) / 100;
+		if (rms < -20) {
+			val = 0;
+		}
+		// if (rms > vocal_max - 5 && vocal_max > 18 && val > 4) {
+		// 	if(randomInt(1, 3) == 3){
+		// 		val = 2;
+		// 		console.log("LJHSADLASJHD");
+		// 	}
+		// }
+		console.log("Vocal RMS:", rms);
+		console.log("Vocal Min:", vocal_min);
+		console.log("Vocal Max:", vocal_max);
 		if (isNaN(val)) { val = 0; }
 		console.log('Value: ' + Math.round(val));
 		for (var i = 0; i < 3; i++) {
@@ -660,6 +754,10 @@ function playSong(path, vocalPath, drumPath, otherPath){
 					console.log('Serial Msg Out: '+serialMsg);
 				});
 			}
+    // Get the corresponding pitch value
+    const elapsedTime = parseFloat(data.split('time=')[1].split(' ')[0]);
+    const closestPitch = pitchData.reduce((prev, curr) => Math.abs(curr.timestamp - elapsedTime) < Math.abs(prev.timestamp - elapsedTime) ? curr : prev);
+    console.log('Pitch:', closestPitch.pitch);
 		// }
 	});
 	ffplayVocalsCmd.on('close', function(code) {
