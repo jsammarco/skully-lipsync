@@ -25,7 +25,7 @@ int keyIndex = 0;            // your network key Index number (needed only for W
 unsigned int localPort = 2390;      // local port to listen on
 
 char packetBuffer[256]; //buffer to hold incoming packet
-char  ReplyBuffer[] = "acknowledged";       // a string to send back
+char  ReplyBuffer[] = "ack";       // a string to send back
 char *strings[6];
 int neckPos;
 int mouthPos;
@@ -144,17 +144,17 @@ void loop() {
 
     if (relay1 == 1){
       digitalWrite(2, LOW);
-      delay(10);
+      // delay(10);
     }else{
       digitalWrite(2, HIGH);
-      delay(10);
+      // delay(10);
     }
     if (relay2 == 1){
       digitalWrite(3, LOW);
-      delay(10);
+      // delay(10);
     }else{
       digitalWrite(3, HIGH);
-      delay(10);
+      // delay(10);
     }
     
     Serial.print("Neck: ");
@@ -167,11 +167,11 @@ void loop() {
     Serial.print(relay2);
     // send a reply, to the IP address and port that sent us the packet we received
 
-    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+    // Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
 
-    Udp.write(ReplyBuffer);
+    // Udp.write(ReplyBuffer);
 
-    Udp.endPacket();
+    // Udp.endPacket();
 
   }
 }

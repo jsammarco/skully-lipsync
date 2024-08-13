@@ -96,7 +96,7 @@ if (!noUSB) {
 }
 
 setInterval(function () {
-	vocal_max = -18;
+	vocal_max = -8;
 }, 5000);
 // var songName = "Creedence Clearwater Revival - Green River";
 var songName = "";
@@ -389,65 +389,65 @@ function playSong(path, vocalPath, drumPath, otherPath){
   const pitchDataPath = vocalPath.slice(0,-11) + "/pitch.csv";
   let pitchData = [];
 // Ensure the directory for the pitch data file exists
-const ensureDirectoryExistence = (filePath) => {
-  const dirname = pathLib.dirname(filePath);
-  if (fs.existsSync(dirname)) {
-    return true;
-  }
-  ensureDirectoryExistence(dirname);
-  fs.mkdirSync(dirname);
-};
+// const ensureDirectoryExistence = (filePath) => {
+//   const dirname = pathLib.dirname(filePath);
+//   if (fs.existsSync(dirname)) {
+//     return true;
+//   }
+//   ensureDirectoryExistence(dirname);
+//   fs.mkdirSync(dirname);
+// };
 
-if (!fs.existsSync(pitchDataPath)) {
-  console.log('Extracting pitch data...');
-  ensureDirectoryExistence(pitchDataPath);
-  const aubioPitchCmd = spawn('aubio', ['pitch', vocalPath]);
+// if (!fs.existsSync(pitchDataPath)) {
+//   console.log('Extracting pitch data...');
+//   ensureDirectoryExistence(pitchDataPath);
+//   const aubioPitchCmd = spawn('aubio', ['pitch', vocalPath]);
 
-  const writeStream = fs.createWriteStream(pitchDataPath);
-  aubioPitchCmd.stderr.on('data', function(data) {
-    writeStream.write(data);
-  });
+//   const writeStream = fs.createWriteStream(pitchDataPath);
+//   aubioPitchCmd.stderr.on('data', function(data) {
+//     writeStream.write(data);
+//   });
 
-  aubioPitchCmd.on('close', (code) => {
-    writeStream.end();
-    console.log('Pitch data extraction completed.');
+//   aubioPitchCmd.on('close', (code) => {
+//     writeStream.end();
+//     console.log('Pitch data extraction completed.');
 
-    // Read the pitch data after extraction
-    const rl = readline.createInterface({
-      input: fs.createReadStream(pitchDataPath),
-      crlfDelay: Infinity
-    });
+//     // Read the pitch data after extraction
+//     const rl = readline.createInterface({
+//       input: fs.createReadStream(pitchDataPath),
+//       crlfDelay: Infinity
+//     });
 
-    rl.on('line', (line) => {
-      const [timestamp, pitch] = line.split(',').map(parseFloat);
-      pitchData.push({ timestamp, pitch });
-    });
+//     rl.on('line', (line) => {
+//       const [timestamp, pitch] = line.split(',').map(parseFloat);
+//       pitchData.push({ timestamp, pitch });
+//     });
 
-    rl.on('close', () => {
-	    console.log('Pitch data loaded', pitchData);
-	    process.abort();
-      // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
-    });
-  });
-} else {
-  // Read the pitch data if it already exists
-  const rl = readline.createInterface({
-    input: fs.createReadStream(pitchDataPath),
-    crlfDelay: Infinity
-  });
+//     rl.on('close', () => {
+// 	    console.log('Pitch data loaded', pitchData);
+// 	    process.abort();
+//       // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+//     });
+//   });
+// } else {
+//   // Read the pitch data if it already exists
+//   const rl = readline.createInterface({
+//     input: fs.createReadStream(pitchDataPath),
+//     crlfDelay: Infinity
+//   });
 
-  rl.on('line', (line) => {
-    const [timestamp, pitch] = line.split(',').map(parseFloat);
-    pitchData.push({ timestamp, pitch });
-  });
+//   rl.on('line', (line) => {
+//     const [timestamp, pitch] = line.split(',').map(parseFloat);
+//     pitchData.push({ timestamp, pitch });
+//   });
 
-  rl.on('close', () => {
-    console.log('Pitch data loaded', pitchData);
-    process.abort();
-    // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+//   rl.on('close', () => {
+//     console.log('Pitch data loaded', pitchData);
+//     process.abort();
+//     // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
 
-  });
-}
+//   });
+// }
 
 
 
@@ -531,7 +531,7 @@ if (!fs.existsSync(pitchDataPath)) {
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [vocal_max - 25, vocal_max], [0,6])))) * 100) / 100;
+		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [vocal_max - 15, vocal_max], [0,6])))) * 100) / 100;
 		if (rms < -20) {
 			val = 0;
 		}
@@ -755,9 +755,9 @@ if (!fs.existsSync(pitchDataPath)) {
 				});
 			}
     // Get the corresponding pitch value
-    const elapsedTime = parseFloat(data.split('time=')[1].split(' ')[0]);
-    const closestPitch = pitchData.reduce((prev, curr) => Math.abs(curr.timestamp - elapsedTime) < Math.abs(prev.timestamp - elapsedTime) ? curr : prev);
-    console.log('Pitch:', closestPitch.pitch);
+    // const elapsedTime = parseFloat(data.split('time=')[1].split(' ')[0]);
+    // const closestPitch = pitchData.reduce((prev, curr) => Math.abs(curr.timestamp - elapsedTime) < Math.abs(prev.timestamp - elapsedTime) ? curr : prev);
+    // console.log('Pitch:', closestPitch.pitch);
 		// }
 	});
 	ffplayVocalsCmd.on('close', function(code) {
