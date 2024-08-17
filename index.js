@@ -105,6 +105,7 @@ var songName = "";
 //No slashes or weird characters.
 var songList = [ 
 	// "Speaker Sound Test Check Bass Treble Pan and Vocals",
+	"Katrina Stone - Midas - Trending - Pop - World Music", 
 	"Eyes Closed - Imagine Dragons",
 	"Beautiful Things - Benson Boone Boyce Avenue acoustic cover on Spotify Apple",
 	"Under the Bridge - Red Hot Chili Peppers acoustic cover Corey Heuvel",
@@ -324,40 +325,42 @@ function getPitchData(vocalPath) {
 	};
 
 	if (!fs.existsSync(pitchDataPath)) {
-	  console.log('Extracting pitch data...', 'C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath, '-s', '-70', '-l', '0.7']);
-	  ensureDirectoryExistence(pitchDataPath);
-	  const aubioPitchCmd = spawn('C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath]);
+		setTimeout(function(){
+			  console.log('Extracting pitch data...', 'C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath, '-s', '-70', '-l', '0.7']);
+			  ensureDirectoryExistence(pitchDataPath);
+			  const aubioPitchCmd = spawn('C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath]);
 
-	  const writeStream = fs.createWriteStream(pitchDataPath);
-	  aubioPitchCmd.stdout.on('data', function(data) {
-	  	data = data.toString();
-	  	// console.log(data);
-	    writeStream.write(data);
-	  });
+			  const writeStream = fs.createWriteStream(pitchDataPath);
+			  aubioPitchCmd.stdout.on('data', function(data) {
+			  	data = data.toString();
+			  	// console.log(data);
+			    writeStream.write(data);
+			  });
 
-	  aubioPitchCmd.on('close', (code) => {
-	    writeStream.end();
-	    console.log('Pitch data extraction completed.');
+			  aubioPitchCmd.on('close', (code) => {
+			    writeStream.end();
+			    console.log('Pitch data extraction completed.');
 
-	    // Read the pitch data after extraction
-	    const rl = readline.createInterface({
-	      input: fs.createReadStream(pitchDataPath),
-	      crlfDelay: Infinity
-	    });
+			    // Read the pitch data after extraction
+			    const rl = readline.createInterface({
+			      input: fs.createReadStream(pitchDataPath),
+			      crlfDelay: Infinity
+			    });
 
-	    rl.on('line', (line) => {
-	      const [timestamp, pitch] = line.split(' ').map(parseFloat);
-	      pitchData.push({ timestamp, pitch });
-	    });
+			    rl.on('line', (line) => {
+			      const [timestamp, pitch] = line.split(' ').map(parseFloat);
+			      pitchData.push({ timestamp, pitch });
+			    });
 
-	    rl.on('close', () => {
-		    console.log('Pitch data loaded', pitchData[0]);
-		    setTimeout(function(){
-			    resolve('resolved');
-			}, 1000);
-	      // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
-	    });
-	  });
+			    rl.on('close', () => {
+				    console.log('Pitch data loaded', pitchData[0]);
+				    setTimeout(function(){
+					    resolve('resolved');
+					}, 1000);
+			      // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+			    });
+			  });
+		},2000);
 	} else {
 	  // Read the pitch data if it already exists
 	  const rl = readline.createInterface({
@@ -556,7 +559,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms - 2, [vocal_max-50, vocal_max], [0,6])))) * 10) / 10;
+		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms - 2, [vocal_max-20, vocal_max], [1,6])))) * 10) / 10;
 		// if (rms < -15 && vocal_max < -12) {
 		// 	val = 0;
 		// }
@@ -569,7 +572,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("Vocal RMS:", rms);
 		console.log("Vocal Min:", vocal_min);
 		console.log("Vocal Max:", vocal_max);
-		if (isNaN(val)) { val = 0; }
+		if (isNaN(val)) { val = 0.5; }
 
 
 	    var closestPitch = 0;
@@ -618,15 +621,15 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		}
 
 		console.log('Pre-Pitch Value: ' + val);
-		if (closestPitch < 5 || closestPitch > 2000) {
-			val = 0;
+		if (closestPitch < 0 || closestPitch > 3000) {
+			val = 2;
 		}
-		// if (val < 0.5) {
-		// 	val = 0;
-		// }else{
+		if (val < 2) {
+			val = 2;
+		}else{
 			var adder = 0;
-			if (closestPitch > 50 && closestPitch < 1500) {
-				adder = Math.min(3, Math.max(0, closestPitch / 250))
+			if (closestPitch > 50 && closestPitch < 500) {
+				adder = Math.min(3, Math.max(0, closestPitch / 200))
 			}
 			if (randomInt(0,9) !== 0) {
 				adder = -(adder);
@@ -634,7 +637,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 			console.log("Adder:", adder);
 			val = Math.round((val - adder)*10)/10;
 			val = Math.min(6, val);
-		// }
+		}
 		var neckPos = Math.round(Math.max(21,  Math.min(131, convertRange(headTurnPos, [1, 5], [21,131]))));
 		var mouthPos = val; //Math.round(Math.max(51,  Math.min(151, convertRange(val, [1, 5], [51,151]))));
 		console.log('Post-Pitch Value: ' + val);
