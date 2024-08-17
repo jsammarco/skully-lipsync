@@ -68,7 +68,7 @@ var relay2LastTimeOff = new Date().getTime();
 var relay1 = 0;
 var relay2 = 0;
 const noUSB = true; //TRUE for UDP only
-var skipUDPCount = 1;
+var skipUDPCount = 0;
 var udpCounter = 0;
 var pitchData = [];
 var lastUDPVal = 0;
@@ -105,10 +105,12 @@ var songName = "";
 //No slashes or weird characters.
 var songList = [ 
 	// "Speaker Sound Test Check Bass Treble Pan and Vocals",
+	"Eyes Closed - Imagine Dragons",
+	"Beautiful Things - Benson Boone Boyce Avenue acoustic cover on Spotify Apple",
+	"Under the Bridge - Red Hot Chili Peppers acoustic cover Corey Heuvel",
 	"Take Me Out - Franz Ferdinand",
 	"feelslikeimfallinginlove - Coldplay",
 	"Bang - AJR", 
-	"Eyes Closed - Imagine Dragons",
 	"Eastside - Benny Blanco Halsey",
 	"Run - OneRepublic",
 	"Sabrina Carpenter - Espresso", 
@@ -322,7 +324,7 @@ function getPitchData(vocalPath) {
 	};
 
 	if (!fs.existsSync(pitchDataPath)) {
-	  console.log('Extracting pitch data...', 'C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath]);
+	  console.log('Extracting pitch data...', 'C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath, '-s', '-70', '-l', '0.7']);
 	  ensureDirectoryExistence(pitchDataPath);
 	  const aubioPitchCmd = spawn('C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath]);
 
@@ -554,7 +556,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [-70, vocal_max], [0,6])))) * 10) / 10;
+		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms - 2, [vocal_max-50, vocal_max], [0,6])))) * 10) / 10;
 		// if (rms < -15 && vocal_max < -12) {
 		// 	val = 0;
 		// }
@@ -616,17 +618,20 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		}
 
 		console.log('Pre-Pitch Value: ' + val);
-		if (closestPitch == 0) {
+		if (closestPitch < 5 || closestPitch > 2000) {
 			val = 0;
 		}
 		// if (val < 0.5) {
 		// 	val = 0;
 		// }else{
 			var adder = 0;
-			if (closestPitch > 50 && closestPitch < 1000) {
-				adder = Math.min(3, Math.max(0, closestPitch / 500))
+			if (closestPitch > 50 && closestPitch < 1500) {
+				adder = Math.min(3, Math.max(0, closestPitch / 250))
 			}
-			console.log(adder);
+			if (randomInt(0,9) !== 0) {
+				adder = -(adder);
+			}
+			console.log("Adder:", adder);
 			val = Math.round((val - adder)*10)/10;
 			val = Math.min(6, val);
 		// }
