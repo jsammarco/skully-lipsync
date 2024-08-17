@@ -70,6 +70,8 @@ var relay2 = 0;
 const noUSB = true; //TRUE for UDP only
 var skipUDPCount = 1;
 var udpCounter = 0;
+var pitchData = [];
+var lastUDPVal = 0;
 
 if (!noUSB) {
 	const port = new SerialPort({
@@ -96,13 +98,22 @@ if (!noUSB) {
 }
 
 setInterval(function () {
-	vocal_max = -8;
+	vocal_max = -20;
 }, 5000);
 // var songName = "Creedence Clearwater Revival - Green River";
 var songName = "";
 //No slashes or weird characters.
 var songList = [ 
 	// "Speaker Sound Test Check Bass Treble Pan and Vocals",
+	"Take Me Out - Franz Ferdinand",
+	"feelslikeimfallinginlove - Coldplay",
+	"Bang - AJR", 
+	"Eyes Closed - Imagine Dragons",
+	"Eastside - Benny Blanco Halsey",
+	"Run - OneRepublic",
+	"Sabrina Carpenter - Espresso", 
+	"Supermans Feinde - Chasin' You",
+	"Phoenix - 1901",
 	"why georgia john mayer",
 	"So Doggone Lonesome - Johnny Cash",
 	"Ariana Grande - we can't be friends",
@@ -270,9 +281,12 @@ function nextSong(){
 	spawn('taskkill', ['/F', '/IM', 'ffplay.exe', '/T']);
 }
 
-function play(songName) {
+async function play(songName) {
 	if (!songName || songName == "") { return; }
 	console.log("PLAYING", currentSongIndex);
+	console.log("Get Pitch Data");
+	await getPitchData(folder+"/output5stem/"+songName+"/vocals.wav");
+	console.log("GOT IT!");
 	try {
 		console.log(folder+"/output5stem/"+songName+"/vocals.wav");
 	  	if (fs.existsSync(folder+"/output5stem/"+songName+"/vocals.wav")) {
@@ -290,6 +304,82 @@ function play(songName) {
 	}
 }
 // askForSong();
+
+function getPitchData(vocalPath) {
+  return new Promise((resolve) => {
+  	pitchData = [];
+  	const pitchDataPath = vocalPath.slice(0,-11) + "/pitch.csv";
+  	console.log("pitchDataPath", pitchDataPath);
+  	console.log("vocalPath", vocalPath);
+	// Ensure the directory for the pitch data file exists
+	const ensureDirectoryExistence = (filePath) => {
+	  const dirname = pathLib.dirname(filePath);
+	  if (fs.existsSync(dirname)) {
+	    return true;
+	  }
+	  ensureDirectoryExistence(dirname);
+	  fs.mkdirSync(dirname);
+	};
+
+	if (!fs.existsSync(pitchDataPath)) {
+	  console.log('Extracting pitch data...', 'C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath]);
+	  ensureDirectoryExistence(pitchDataPath);
+	  const aubioPitchCmd = spawn('C:/aubio/bin/aubiopitch.exe', ['-i', vocalPath]);
+
+	  const writeStream = fs.createWriteStream(pitchDataPath);
+	  aubioPitchCmd.stdout.on('data', function(data) {
+	  	data = data.toString();
+	  	// console.log(data);
+	    writeStream.write(data);
+	  });
+
+	  aubioPitchCmd.on('close', (code) => {
+	    writeStream.end();
+	    console.log('Pitch data extraction completed.');
+
+	    // Read the pitch data after extraction
+	    const rl = readline.createInterface({
+	      input: fs.createReadStream(pitchDataPath),
+	      crlfDelay: Infinity
+	    });
+
+	    rl.on('line', (line) => {
+	      const [timestamp, pitch] = line.split(' ').map(parseFloat);
+	      pitchData.push({ timestamp, pitch });
+	    });
+
+	    rl.on('close', () => {
+		    console.log('Pitch data loaded', pitchData[0]);
+		    setTimeout(function(){
+			    resolve('resolved');
+			}, 1000);
+	      // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+	    });
+	  });
+	} else {
+	  // Read the pitch data if it already exists
+	  const rl = readline.createInterface({
+	    input: fs.createReadStream(pitchDataPath),
+	    crlfDelay: Infinity
+	  });
+
+	  rl.on('line', (line) => {
+	    const [timestamp, pitch] = line.split(' ').map(parseFloat);
+	    pitchData.push({ timestamp, pitch });
+	  });
+
+	  rl.on('close', () => {
+	    console.log('Pitch data loaded', pitchData[0]);
+	    setTimeout(function(){
+		    resolve('resolved');
+		}, 1000);
+	    // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
+
+	  });
+	}
+	  
+  });
+}
 
 function askForSong(){
 	rl.question('Pick a song, Any song? ', function (name) {
@@ -384,73 +474,6 @@ function convertSong(path, songName) {
 }
 
 function playSong(path, vocalPath, drumPath, otherPath){
-
-
-  const pitchDataPath = vocalPath.slice(0,-11) + "/pitch.csv";
-  let pitchData = [];
-// Ensure the directory for the pitch data file exists
-// const ensureDirectoryExistence = (filePath) => {
-//   const dirname = pathLib.dirname(filePath);
-//   if (fs.existsSync(dirname)) {
-//     return true;
-//   }
-//   ensureDirectoryExistence(dirname);
-//   fs.mkdirSync(dirname);
-// };
-
-// if (!fs.existsSync(pitchDataPath)) {
-//   console.log('Extracting pitch data...');
-//   ensureDirectoryExistence(pitchDataPath);
-//   const aubioPitchCmd = spawn('aubio', ['pitch', vocalPath]);
-
-//   const writeStream = fs.createWriteStream(pitchDataPath);
-//   aubioPitchCmd.stderr.on('data', function(data) {
-//     writeStream.write(data);
-//   });
-
-//   aubioPitchCmd.on('close', (code) => {
-//     writeStream.end();
-//     console.log('Pitch data extraction completed.');
-
-//     // Read the pitch data after extraction
-//     const rl = readline.createInterface({
-//       input: fs.createReadStream(pitchDataPath),
-//       crlfDelay: Infinity
-//     });
-
-//     rl.on('line', (line) => {
-//       const [timestamp, pitch] = line.split(',').map(parseFloat);
-//       pitchData.push({ timestamp, pitch });
-//     });
-
-//     rl.on('close', () => {
-// 	    console.log('Pitch data loaded', pitchData);
-// 	    process.abort();
-//       // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
-//     });
-//   });
-// } else {
-//   // Read the pitch data if it already exists
-//   const rl = readline.createInterface({
-//     input: fs.createReadStream(pitchDataPath),
-//     crlfDelay: Infinity
-//   });
-
-//   rl.on('line', (line) => {
-//     const [timestamp, pitch] = line.split(',').map(parseFloat);
-//     pitchData.push({ timestamp, pitch });
-//   });
-
-//   rl.on('close', () => {
-//     console.log('Pitch data loaded', pitchData);
-//     process.abort();
-//     // startFFplay(path, vocalPath, drumPath, otherPath, pitchData);
-
-//   });
-// }
-
-
-
 	console.log("Playing "+path);
 	console.log("Vocals "+vocalPath);
 	var ffplayVocalsCmd = null;
@@ -531,10 +554,10 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("currentSong", songList[currentSongIndex]);
 		console.log("currentSongIndex", currentSongIndex);
 		// console.log('Vocal RMS_level: ' + rms, 'Min: ', vocal_min, 'Max: ', vocal_max);
-		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [vocal_max - 15, vocal_max], [0,6])))) * 100) / 100;
-		if (rms < -20) {
-			val = 0;
-		}
+		var val = Math.round((Math.max(0,  Math.min(6, convertRange(rms, [-70, vocal_max], [0,6])))) * 10) / 10;
+		// if (rms < -15 && vocal_max < -12) {
+		// 	val = 0;
+		// }
 		// if (rms > vocal_max - 5 && vocal_max > 18 && val > 4) {
 		// 	if(randomInt(1, 3) == 3){
 		// 		val = 2;
@@ -545,10 +568,23 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		console.log("Vocal Min:", vocal_min);
 		console.log("Vocal Max:", vocal_max);
 		if (isNaN(val)) { val = 0; }
-		console.log('Value: ' + Math.round(val));
-		for (var i = 0; i < 3; i++) {
-			console.log("");
+
+
+	    var closestPitch = 0;
+	    var timeData = data.split('time:');
+	    if (timeData.length > 1) {
+		    const elapsedTime = parseFloat(timeData[1].split(' ')[0]);
+		    closestPitch = pitchData.reduce((prev, curr) => Math.abs(curr.timestamp - elapsedTime) < Math.abs(prev.timestamp - elapsedTime) ? curr : prev);
+		    closestPitch = parseInt(closestPitch.pitch);
+		    console.log('Pitch:', closestPitch);
+		}else{
+		    console.log('Pitch: N/A');
+		    closestPitch = 0;
 		}
+		
+		// for (var i = 0; i < 3; i++) {
+		// 	console.log("");
+		// }
 		// console.log("         =====");
 		// console.log("|\\      ====0===");
 		// console.log("| --- ===========");
@@ -560,91 +596,108 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		// console.log("|/-- ===========");
 		// console.log("/     =========");
 		// console.log("       ======");
-		if(val > 4 && randomInt(1, 128) == 8){
+		var r = randomInt(1, 84);
+		if(val > 4 && r == 8){
 			clearTimeout(headTurnTimer);
 			headTurn = true;
 			headTurnPos = randomInt(0, 5);
 			if (headTurnPos == 3) { headTurnPos = headTurnPos + randomInt(-1, 1); }
 			Math.max(1,  Math.min(5, headTurnPos));
-		}else if(val > 3 && randomInt(1, 128) == 8){
+		}else if(val > 3 && r == 8){
 			headTurnTimer = setTimeout(function(){
 				headTurn = false;
 				headTurnPos = 3;
 			}, headTurnDelay);
-		}else if(val < 2 && randomInt(1, 128) == 8){
+		}else if(val < 2 && r == 8){
 			headTurnTimer = setTimeout(function(){
 				headTurn = false;
 				headTurnPos = 3;
 			}, headTurnDelay);
 		}
 
+		console.log('Pre-Pitch Value: ' + val);
+		if (closestPitch == 0) {
+			val = 0;
+		}
+		// if (val < 0.5) {
+		// 	val = 0;
+		// }else{
+			var adder = 0;
+			if (closestPitch > 50 && closestPitch < 1000) {
+				adder = Math.min(3, Math.max(0, closestPitch / 500))
+			}
+			console.log(adder);
+			val = Math.round((val - adder)*10)/10;
+			val = Math.min(6, val);
+		// }
 		var neckPos = Math.round(Math.max(21,  Math.min(131, convertRange(headTurnPos, [1, 5], [21,131]))));
 		var mouthPos = val; //Math.round(Math.max(51,  Math.min(151, convertRange(val, [1, 5], [51,151]))));
+		console.log('Post-Pitch Value: ' + val);
 
-		if(val < 0){
-			console.log("\
-	  ╭━╮\n\
-	╭╮┃╮┃\n\
-	╰╯┃┃┃\n\
-	╭╮┃┃┃\n\
-	╰╯┃╯┃\n\
-	  ╰━╯");
-		}else if (val < 2) {
-			console.log("\
-	\n\
-	╭╮╭━━╮\n\
-	╰╯┃╭╮┃\n\
-	╭╮┃╰╯┃\n\
-	╰╯╰━━╯\n");
-		}else if(val < 3){
-			console.log("\
-	  ╭━━━╮\n\
-	╭╮┃╭━╮┃\n\
-	╰╯┃┃ ┃┃\n\
-	╭╮┃┃ ┃┃\n\
-	╰╯┃╰━╯┃\n\
-	  ╰━━━╯");
-		}else if(val < 4){
-			console.log("\
-	  ╭━━━━╮\n\
-	╭╮┃╭━━╮┃\n\
-	╰╯┃┃  ┃┃\n\
-	╭╮┃┃  ┃┃\n\
-	╰╯┃╰━━╯┃\n\
-	  ╰━━━━╯");
-		}else if(val < 5){
-			console.log("\
-	  ╭━━━━━╮\n\
-	╭╮┃╭━━━╮┃\n\
-	╰╯┃┃   ┃┃\n\
-	╭╮┃┃   ┃┃\n\
-	╰╯┃╰━━━╯┃\n\
-	  ╰━━━━━╯");
-	// 	}else if(val < 6){
+	// 	if(val < 0){
+	// 		console.log("\
+	//   ╭━╮\n\
+	// ╭╮┃╮┃\n\
+	// ╰╯┃┃┃\n\
+	// ╭╮┃┃┃\n\
+	// ╰╯┃╯┃\n\
+	//   ╰━╯");
+	// 	}else if (val < 2) {
+	// 		console.log("\
+	// \n\
+	// ╭╮╭━━╮\n\
+	// ╰╯┃╭╮┃\n\
+	// ╭╮┃╰╯┃\n\
+	// ╰╯╰━━╯\n");
+	// 	}else if(val < 3){
+	// 		console.log("\
+	//   ╭━━━╮\n\
+	// ╭╮┃╭━╮┃\n\
+	// ╰╯┃┃ ┃┃\n\
+	// ╭╮┃┃ ┃┃\n\
+	// ╰╯┃╰━╯┃\n\
+	//   ╰━━━╯");
+	// 	}else if(val < 4){
+	// 		console.log("\
+	//   ╭━━━━╮\n\
+	// ╭╮┃╭━━╮┃\n\
+	// ╰╯┃┃  ┃┃\n\
+	// ╭╮┃┃  ┃┃\n\
+	// ╰╯┃╰━━╯┃\n\
+	//   ╰━━━━╯");
+	// 	}else if(val < 5){
+	// 		console.log("\
+	//   ╭━━━━━╮\n\
+	// ╭╮┃╭━━━╮┃\n\
+	// ╰╯┃┃   ┃┃\n\
+	// ╭╮┃┃   ┃┃\n\
+	// ╰╯┃╰━━━╯┃\n\
+	//   ╰━━━━━╯");
+	// // 	}else if(val < 6){
+	// // 		console.log("\
+	// //   ╭━━━━━━╮\n\
+	// // ╭╮┃╭━━━━╮┃\n\
+	// // ╰╯┃┃    ┃┃\n\
+	// // ╭╮┃┃    ┃┃\n\
+	// // ╰╯┃╰━━━━╯┃\n\
+	// //   ╰━━━━━━╯");
+	// 	}else if(val >= 6){
 	// 		console.log("\
 	//   ╭━━━━━━╮\n\
-	// ╭╮┃╭━━━━╮┃\n\
-	// ╰╯┃┃    ┃┃\n\
-	// ╭╮┃┃    ┃┃\n\
-	// ╰╯┃╰━━━━╯┃\n\
+	// ╭ ┃╭━━━━╮┃\n\
+	// ╰ ┃┃    ┃┃\n\
+	// ╭ ┃┃    ┃┃\n\
+	// ╰ ┃╰━━━━╯┃\n\
 	//   ╰━━━━━━╯");
-		}else if(val >= 6){
-			console.log("\
-	  ╭━━━━━━╮\n\
-	╭ ┃╭━━━━╮┃\n\
-	╰ ┃┃    ┃┃\n\
-	╭ ┃┃    ┃┃\n\
-	╰ ┃╰━━━━╯┃\n\
-	  ╰━━━━━━╯");
-		}else{
-			console.log("\
-	  ╭━╮\n\
-	╭╮┃╮┃\n\
-	╰╯┃┃┃\n\
-	╭╮┃┃┃\n\
-	╰╯┃╯┃\n\
-	  ╰━╯");
-		}
+	// 	}else{
+	// 		console.log("\
+	//   ╭━╮\n\
+	// ╭╮┃╮┃\n\
+	// ╰╯┃┃┃\n\
+	// ╭╮┃┃┃\n\
+	// ╰╯┃╯┃\n\
+	//   ╰━╯");
+	// 	}
 		for (var i = 0; i < 2; i++) {
 			console.log("");
 		}
@@ -664,86 +717,90 @@ function playSong(path, vocalPath, drumPath, otherPath){
 		}
 		console.log("Drum: ", beatStr);
 		console.log("Other: ", otherStr);
-		if(otherValue > 2.8 && (new Date().getTime() - relay1LastTimeOn > 500 || relay1 === 1)){
-			relay1 = 1;
-			relay1LastTimeOn = new Date().getTime();
-		console.log("\
-     \`  __  -\n\
-   - .\"\`  \`\". -\n\
-  - /   /\   \\ -\n\
- > |    \/    | <\n\
-  . \\   ()   / ,\n\
-    .'.____.' ,\n\
-      {_.=\"}\n\
-      {_.=\"}\n\
-      `-..-`");
-		}else if(otherValue < 3.0 && new Date().getTime() - relay1LastTimeOff > 500 || relay1 === 0){
-			relay1 = 0;
-			relay1LastTimeOff = new Date().getTime();
-		console.log("\
-        __\n\
-     .\"`  `\".\n\
-    /   /\   \\\n\
-   |    \/    |\n\
-    \\   ()   /\n\
-     '.____.'\n\
-      {_.=\"}\n\
-      {_.=\"}\n\
-      `-..-`");
-		}else{
-		console.log("\
-        __\n\
-     .\"`  `\".\n\
-    /   /\   \\\n\
-   |    \/    |\n\
-    \\   ()   /\n\
-     '.____.'\n\
-      {_.=\"}\n\
-      {_.=\"}\n\
-      `-..-`");
-		}
-		if(beatValue > 3.5 && (new Date().getTime() - relay2LastTimeOn > 200 || relay2 === 1)){
-			relay2 = 1;
-			relay2LastTimeOn = new Date().getTime();
-		console.log("\
-   \\       /\n\
-    \\     /   \n\
-   __o____o___\n\
-  |___________|\n\
-   |\\  /\\  /\\|\n\
-   |_\\/__\\/__|\n\
-  |___________|");
-		}else if(beatValue < 3.0 && new Date().getTime() - relay2LastTimeOff > 200 || relay2 === 0){
-			relay2 = 0;
-			relay2LastTimeOff = new Date().getTime();
-		console.log("\
-	\n\
-======o     o======\n\
-   ___________\n\
-  |___________|\n\
-   |\\  /\\  /\\|\n\
-   |_\\/__\\/__|\n\
-  |___________|");
-		}else{
-		console.log("\
-	\n\
-======o     o======\n\
-   ___________\n\
-  |___________|\n\
-   |\\  /\\  /\\|\n\
-   |_\\/__\\/__|\n\
-  |___________|");
-		}
+
+// 		if(otherValue > 2.8 && (new Date().getTime() - relay1LastTimeOn > 500 || relay1 === 1)){
+// 			relay1 = 1;
+// 			relay1LastTimeOn = new Date().getTime();
+// 		console.log("\
+//      \`  __  -\n\
+//    - .\"\`  \`\". -\n\
+//   - /   /\   \\ -\n\
+//  > |    \/    | <\n\
+//   . \\   ()   / ,\n\
+//     .'.____.' ,\n\
+//       {_.=\"}\n\
+//       {_.=\"}\n\
+//       `-..-`");
+// 		}else if(otherValue < 3.0 && new Date().getTime() - relay1LastTimeOff > 500 || relay1 === 0){
+// 			relay1 = 0;
+// 			relay1LastTimeOff = new Date().getTime();
+// 		console.log("\
+//         __\n\
+//      .\"`  `\".\n\
+//     /   /\   \\\n\
+//    |    \/    |\n\
+//     \\   ()   /\n\
+//      '.____.'\n\
+//       {_.=\"}\n\
+//       {_.=\"}\n\
+//       `-..-`");
+// 		}else{
+// 		console.log("\
+//         __\n\
+//      .\"`  `\".\n\
+//     /   /\   \\\n\
+//    |    \/    |\n\
+//     \\   ()   /\n\
+//      '.____.'\n\
+//       {_.=\"}\n\
+//       {_.=\"}\n\
+//       `-..-`");
+// 		}
+// 		if(beatValue > 3.5 && (new Date().getTime() - relay2LastTimeOn > 200 || relay2 === 1)){
+// 			relay2 = 1;
+// 			relay2LastTimeOn = new Date().getTime();
+// 		console.log("\
+//    \\       /\n\
+//     \\     /   \n\
+//    __o____o___\n\
+//   |___________|\n\
+//    |\\  /\\  /\\|\n\
+//    |_\\/__\\/__|\n\
+//   |___________|");
+// 		}else if(beatValue < 3.0 && new Date().getTime() - relay2LastTimeOff > 200 || relay2 === 0){
+// 			relay2 = 0;
+// 			relay2LastTimeOff = new Date().getTime();
+// 		console.log("\
+// 	\n\
+// ======o     o======\n\
+//    ___________\n\
+//   |___________|\n\
+//    |\\  /\\  /\\|\n\
+//    |_\\/__\\/__|\n\
+//   |___________|");
+// 		}else{
+// 		console.log("\
+// 	\n\
+// ======o     o======\n\
+//    ___________\n\
+//   |___________|\n\
+//    |\\  /\\  /\\|\n\
+//    |_\\/__\\/__|\n\
+//   |___________|");
+// 		}
 		// if (neckPos > lastNeckPos+db || neckPos < lastNeckPos-db || mouthPos > lastMouthPos+db || mouthPos < lastMouthPos-db) {
 			var serialMsg = neckPos+','+mouthPos+','+relay1+','+relay2+'\n';
 			var udp_msg = serialMsg;
 			var udp_msg_len = udp_msg.length;
-			console.log(serialMsg);
+			// console.log(serialMsg);
 			udpCounter++;
-			if (udpCounter % skipUDPCount == 0) {
-				console.log("sent", udpCounter)
+			if (((udpCounter % skipUDPCount == 0) || skipUDPCount === 0) && (lastUDPVal !== mouthPos)) {
+				// console.log("sent", udpCounter)
 				client.send(udp_msg, 0, udp_msg_len, udp_port, udp_ip);
 				udpCounter = 0;
+				lastUDPVal = mouthPos;
+			}else{
+				// console.log("Skip")
 			}
 			if (!noUSB) {
 				port.write(serialMsg, (err) => {
@@ -755,9 +812,7 @@ function playSong(path, vocalPath, drumPath, otherPath){
 				});
 			}
     // Get the corresponding pitch value
-    // const elapsedTime = parseFloat(data.split('time=')[1].split(' ')[0]);
-    // const closestPitch = pitchData.reduce((prev, curr) => Math.abs(curr.timestamp - elapsedTime) < Math.abs(prev.timestamp - elapsedTime) ? curr : prev);
-    // console.log('Pitch:', closestPitch.pitch);
+    // console.log(data);
 		// }
 	});
 	ffplayVocalsCmd.on('close', function(code) {
